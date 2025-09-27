@@ -4,14 +4,20 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Enable global validation pipe
+  const { ValidationPipe } = await import('@nestjs/common');
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
+  );
+
   const config = new DocumentBuilder()
     .setTitle('Fitness timer API')
     .setDescription('The fitness timer API description')
     .setVersion('1.0')
     .addTag('fitness')
     .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, documentFactory);
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('/docs', app, document);
   await app.listen(process.env.PORT || 3000);
 }
 bootstrap();
