@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module';
+import { WorkoutsModule } from './workouts/workouts.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { CommentsModule } from './comments/comments.module';
+import { ExercisesModule } from './exercises/exercises.module';
 
 @Module({
   imports: [
@@ -10,13 +14,11 @@ import { ConfigModule } from '@nestjs/config';
       isGlobal: true,
       envFilePath: ['.env'],
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      synchronize: true,
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      logging: true,
-    }),
+    PrismaModule,
+    WorkoutsModule,
+    SessionsModule,
+    CommentsModule,
+    ExercisesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

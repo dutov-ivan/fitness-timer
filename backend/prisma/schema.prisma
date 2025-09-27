@@ -1,0 +1,252 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum MuscleGroup {
+  CHEST
+  BACK
+  SHOULDERS
+  ARMS
+  LEGS
+  CORE
+  FULL_BODY
+}
+
+enum ExerciseType {
+  STRENGTH
+  CARDIO
+  FLEXIBILITY
+  BALANCE
+}
+
+enum ExerciseEquipment {
+  NONE
+  DUMBBELLS
+  BARBELL
+  MACHINE
+  RESISTANCE_BANDS
+  BODYWEIGHT
+  OTHER
+}
+
+enum ExerciseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ExerciseMetricType {
+  TIME
+  DISTANCE
+  REPS
+  SETS
+  CALORIES
+	@@map("MetricType")
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+// Models
+model User {
+  id               Int       @id @default(autoincrement())
+  name             String
+  email            String    @unique
+  password         String
+  profileImage     String?
+  bio              String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relationships
+  savedWorkouts   WorkoutSaved[]
+  createdWorkouts Workout[]
+  workoutSessions  WorkoutSession[]
+  likes            Like[]
+  comments         Comment[]
+  customExercises  ExerciseDefinition[]
+
+  @@map("users")
+}
+
+model Workout {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String
+  shareToken  String?
+  isPublic    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign keys
+  creatorId   Int
+
+  // Relationships
+  creator     User              @relation(fields: [creatorId], references: [id])
+  savedBy     WorkoutSaved[]
+  exercises   WorkoutExercise[]
+  sessions    WorkoutSession[]
+  likes       Like[]
+  comments    Comment[]
+
+  @@map("Workouts")
+}
+
+model ExerciseDefinition {
+  id            Int         @id @default(autoincrement())
+  exerciseName  String
+  description   String?
+  primaryTarget MuscleGroup
+  exerciseType  ExerciseType @default(STRENGTH)
+  equipment     ExerciseEquipment @default(NONE)
+  level         ExerciseLevel @default(BEGINNER)
+  instructions  String?
+  isSystemDefined Boolean   @default(false)  // true for predefined exercises, false for user-created
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Foreign keys (null for system-defined exercises)
+  createdById   Int?
+
+  // Relationships
+  createdBy         User?               @relation(fields: [createdById], references: [id])
+  WorkoutExercises WorkoutExercise[]
+
+  @@map("exercise_definitions")
+}
+
+model WorkoutExercise {
+  id                    Int        @id @default(autoincrement())
+  order                 Int
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  // Exercise metric fields (embedded)
+  metricType            ExerciseMetricType
+  metricValue           Float
+  metricUnit            String?
+
+  // Foreign keys
+  WorkoutId            Int
+  exerciseDefinitionId  Int
+
+  // Relationships
+  Workout              Workout           @relation(fields: [WorkoutId], references: [id])
+  exerciseDefinition    ExerciseDefinition @relation(fields: [exerciseDefinitionId], references: [id])
+  sessionExercises      WorkoutSessionExercise[]
+
+  @@map("Workout_exercises")
+}
+
+// Junction table for many-to-many relationship between Workout and User (saved Workouts)
+model WorkoutSaved {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+
+  // Foreign keys
+  userId     Int
+  WorkoutId Int
+
+  // Relationships
+  user       User     @relation(fields: [userId], references: [id])
+  Workout   Workout @relation(fields: [WorkoutId], references: [id])
+
+  @@unique([userId, WorkoutId])
+  @@map("Workout_saved")
+}
+
+// Workout session tracking
+model WorkoutSession {
+  id          Int           @id @default(autoincrement())
+  status      SessionStatus @default(IN_PROGRESS)
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Foreign keys
+  userId      Int
+  WorkoutId  Int
+
+  // Relationships
+  user        User                    @relation(fields: [userId], references: [id])
+  Workout    Workout                @relation(fields: [WorkoutId], references: [id])
+  exercises   WorkoutSessionExercise[]
+
+  @@map("workout_sessions")
+}
+
+// Track individual exercise performance in a session
+model WorkoutSessionExercise {
+  id              Int      @id @default(autoincrement())
+  order           Int
+  actualMetricValue Float?
+  actualMetricUnit  String?
+  completed       Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Foreign keys
+  sessionId               Int
+  WorkoutExerciseId      Int
+
+  // Relationships
+  session                 WorkoutSession   @relation(fields: [sessionId], references: [id])
+  WorkoutExercise        WorkoutExercise @relation(fields: [WorkoutExerciseId], references: [id])
+
+  @@map("workout_session_exercises")
+}
+
+// Social features - Likes
+model Like {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+
+  // Foreign keys
+  userId     Int
+  WorkoutId Int
+
+  // Relationships
+  user       User     @relation(fields: [userId], references: [id])
+  Workout   Workout @relation(fields: [WorkoutId], references: [id])
+
+  @@unique([userId, WorkoutId])
+  @@map("likes")
+}
+
+// Social features - Comments
+model Comment {
+  id         Int      @id @default(autoincrement())
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Foreign keys
+  userId     Int
+  WorkoutId Int
+
+  // Relationships
+  user       User     @relation(fields: [userId], references: [id])
+  Workout   Workout @relation(fields: [WorkoutId], references: [id])
+
+  @@map("comments")
+}
