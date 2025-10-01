@@ -1,0 +1,100 @@
+"use client";
+
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { z } from "zod";
+import { api } from "../api";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { toast } from "sonner";
+import { useUserStore } from "@/hooks/useUserStore";
+import { setCookie } from "cookies-next";
+import { useRouter } from "next/navigation";
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+export default function LoginPage() {
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
+  const setUser = useUserStore((state) => state.setUser);
+  const router = useRouter();
+
+  const mutation = useMutation({
+    mutationFn: async (data: typeof form) => {
+      const res = await api.post("/auth/login", data);
+      if (res.error) throw new Error(res.message);
+      // Expect res.data to have { token }
+      if (res.data?.token) {
+        setCookie("jwt", res.data.token, { path: "/" });
+        // Fetch user profile
+        const profileRes = await api.get("/profile", {
+          headers: { Authorization: `Bearer ${res.data.token}` },
+        });
+        setUser(profileRes.data);
+      }
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success("Login successful");
+      router.push("/");
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
+    },
+  });
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const result = loginSchema.safeParse(form);
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      setErrors({
+        email: fieldErrors.email?.[0],
+        password: fieldErrors.password?.[0],
+      });
+      return;
+    }
+    setErrors({});
+    mutation.mutate(form);
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm">
+        <h1 className="text-2xl font-bold mb-4">Login</h1>
+        <Input
+          name="email"
+          type="email"
+          placeholder="Email"
+          value={form.email}
+          onChange={handleChange}
+          autoComplete="email"
+        />
+        {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+        <Input
+          name="password"
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={handleChange}
+          autoComplete="current-password"
+        />
+        {errors.password && (
+          <p className="text-red-500 text-sm">{errors.password}</p>
+        )}
+        <Button type="submit" disabled={mutation.isPending} className="w-full">
+          {mutation.isPending ? "Logging in..." : "Login"}
+        </Button>
+      </form>
+    </div>
+  );
+}

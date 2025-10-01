@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { PlusCircle } from "lucide-react";
-import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -23,6 +21,7 @@ import TrainingView from "@/components/training-view";
 import type { Training, Exercise } from "@/lib/types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DEFAULT_EXERCISES } from "./exercises";
+import { toast } from "sonner";
 
 export default function Home() {
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -32,7 +31,6 @@ export default function Home() {
   );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
-  const { toast } = useToast();
 
   // Load data from localStorage on initial render
   useEffect(() => {
@@ -78,17 +76,11 @@ export default function Home() {
     if (editingTraining) {
       // Update existing training
       setTrainings(trainings.map((t) => (t.id === training.id ? training : t)));
-      toast({
-        title: "Тренування оновлено",
-        description: `${training.name} успішно оновлено.`,
-      });
+      toast.success(`Тренування ${training.name} успішно оновлено.`);
     } else {
       // Add new training
       setTrainings([...trainings, training]);
-      toast({
-        title: "Тренування створено",
-        description: `${training.name} успішно створено.`,
-      });
+      toast.success(`Тренування ${training.name} успішно створено.`);
     }
     setIsFormOpen(false);
     setSelectedTraining(training);
@@ -104,10 +96,7 @@ export default function Home() {
     if (selectedTraining?.id === id) {
       setSelectedTraining(null);
     }
-    toast({
-      title: "Тренування видалено",
-      description: "Тренування успішно видалено.",
-    });
+    toast.success("Тренування успішно видалено.");
   };
 
   const handleSaveCustomExercise = (exercise: Exercise) => {
@@ -205,7 +194,6 @@ export default function Home() {
             )}
           </main>
         </div>
-        <Toaster />
       </SidebarProvider>
     </div>
   );

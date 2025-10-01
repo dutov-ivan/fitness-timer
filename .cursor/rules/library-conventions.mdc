@@ -1,0 +1,7 @@
+---
+globs: frontend/app/**/*
+alwaysApply: false
+---
+The frontend code uses following conventions:
+- Use Zod for form validation
+- Use Tanstack Query for writing API requests
